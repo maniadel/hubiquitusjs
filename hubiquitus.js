@@ -21,9 +21,9 @@
 if (typeof define !== 'function') { var define = require('amdefine')(module) }
 
 define(
-    ['./lib/transports/bosh/hsession-bosh', './lib/transports/socketio/hsession-socketio',
+    ['./lib/transports/socketio/hsession-socketio',
         './lib/options', './lib/codes'],
-    function(hSessionBosh, hSessionSocketIO, createOptions, codes){
+    function(hSessionSocketIO, createOptions, codes){
 
         var statuses = codes.statuses;
         var errors = codes.errors;
@@ -85,9 +85,6 @@ define(
 
                 //Instantiate correct transport
                 switch(this.hOptions.transport){
-                    case 'bosh':
-                        this.transport = new hSessionBosh.hSessionBosh(publisher, password, transportCB.bind(this), this.hOptions);
-                        break;
                     default:
                         this.transport = new hSessionSocketIO.hSessionSocketIO(publisher, password, transportCB.bind(this), this.hOptions);
                 }
@@ -124,12 +121,12 @@ define(
             },
 
             subscribe : function(actor, cb){
-                var hMessage = this.buildCommand(this.hOptions.hServer + '@' + this.domain, 'hSubscribe', {actor: actor});
+                var hMessage = this.buildCommand(actor, 'hSubscribe');
                 this.send(hMessage, cb);
             },
 
             unsubscribe : function(actor, cb){
-                var hMessage = this.buildCommand(this.hOptions.hServer + '@' + this.domain, 'hUnsubscribe', {actor: actor});
+                var hMessage = this.buildCommand(actor, 'hUnsubscribe');
                 this.send(hMessage, cb);
             },
 
@@ -159,22 +156,26 @@ define(
 
                     //Add it to the open message to call cb later
                     if(cb) {
-                        this.msgToBeAnswered[hMessage.msgid] = cb;
-                        var timeout = hMessage.timeout || this.hOptions.msgTimeout;
-                        var self = this;
-                        //if no response in time we call a timeout
-                        setInterval(function(){
-                            if(self.msgToBeAnswered[hMessage.msgid]) {
-                                delete self.msgToBeAnswered[hMessage.msgid];
-                                if(hMessage.payload && typeof hMessage.payload === 'object')
-                                    cmd = hMessage.payload.cmd;
-                                errCode = codes.hResultStatus.EXEC_TIMEOUT;
-                                errMsg = 'No response was received within the ' + timeout + ' timeout';
-                                var resultMsg = self.buildResult(hMessage.publisher, hMessage.msgid, cmd, errCode, errMsg);
-                                cb(resultMsg);
-                            }
-                        },timeout);
+                        if(hMessage.timeout > 0){
+                            this.msgToBeAnswered[hMessage.msgid] = cb;
+                            var timeout = hMessage.timeout || this.hOptions.msgTimeout;
+                            var self = this;
+                            //if no response in time we call a timeout
+                            setInterval(function(){
+                                if(self.msgToBeAnswered[hMessage.msgid]) {
+                                    delete self.msgToBeAnswered[hMessage.msgid];
+                                    if(hMessage.payload && typeof hMessage.payload === 'object')
+                                        cmd = hMessage.payload.cmd;
+                                    errCode = codes.hResultStatus.EXEC_TIMEOUT;
+                                    errMsg = 'No response was received within the ' + timeout + ' timeout';
+                                    var resultMsg = self.buildResult(hMessage.publisher, hMessage.msgid, cmd, errCode, errMsg);
+                                    cb(resultMsg);
+                                }
+                            },timeout);
+                        }
                     }
+                    else
+                        hMessage.timeout = -1
 
                     //set a timeout if no response is getting back on time
 
@@ -199,17 +200,17 @@ define(
                 //Allow not to specify quantity and pass a callback directly
                 if(typeof quantity === 'function'){ cb = quantity; quantity = undefined; }
 
-                var hMessage = this.buildCommand(this.hOptions.hServer + '@' + this.domain, 'hGetLastMessages', {actor: actor, nbLastMsg: quantity});
+                var hMessage = this.buildCommand(actor, 'hGetLastMessages', {nbLastMsg: quantity});
                 this.send(hMessage, cb);
             },
 
             getThread: function(actor, convid, cb){
-                var hMessage = this.buildCommand(this.hOptions.hServer + '@' + this.domain, 'hGetThread', {actor: actor, convid: convid});
+                var hMessage = this.buildCommand(actor, 'hGetThread', {convid: convid});
                 this.send(hMessage, cb);
             },
 
             getThreads: function(actor, status, cb){
-                var hMessage = this.buildCommand(this.hOptions.hServer + '@' + this.domain, 'hGetThreads', {actor: actor, status: status});
+                var hMessage = this.buildCommand(actor, 'hGetThreads', {status: status});
                 this.send(hMessage, cb);
             },
 
@@ -232,11 +233,12 @@ define(
             },
 
             getRelevantMessages: function(actor, cb){
-                var hMessage = this.buildCommand(this.hOptions.hServer + '@' + this.domain, 'hRelevantMessages', {actor: actor});
+                var hMessage = this.buildCommand(actor, 'hRelevantMessages');
                 this.send(hMessage, cb);
             },
 
             buildCommand: function(actor, cmd, params, options){
+                params = params || {};
                 options = options || {};
                 if(!cmd)
                     throw new Error('missing cmd');
@@ -282,8 +284,8 @@ define(
                 if(options.relevance)
                     hMessage.relevance = options.relevance;
 
-                if(options.transient !== null || options.transient !== undefined)
-                    hMessage.transient = options.transient;
+                if(options.persistant !== null || options.persistent !== undefined)
+                    hMessage.persistent = options.persistent;
 
                 if(options.location)
                     hMessage.location = options.location;
