@@ -71,6 +71,24 @@ function relevantMessages(){
     hClient.getRelevantMessages(actor, callback);
 }
 
+function createUpdateChannel() {
+    var actor = document.getElementById('actor').value;
+    var owner = document.getElementById('username').value;
+    var type = 'channel';
+    var subscribers = [];
+    var subscriber = document.getElementById('username').value;
+    while (subscriber != null && subscriber != '') {
+        subscribers.push(subscriber);
+        subscriber = prompt('new subscriber name : (null if none)');
+    }
+    console.log("susc : " , subscribers);
+    var active = true;
+
+    var hMessage = hClient.buildCommand('hnode@' + hClient.domain,
+        'hcreateupdatechannel', {actor: actor, owner:owner,type:type,subscribers:subscribers,active:active}, null);
+    hClient.send(hMessage, callback());
+}
+
 function subscribe(){
     var actor = document.getElementById('actor').value;
     hClient.subscribe(actor, callback)
