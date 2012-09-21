@@ -115,7 +115,7 @@ function clear_divs(){
 }
 
 function send_hEcho(){
-    if( hClient.status != hClient.statuses.CONNECTED && hClient.status != hClient.statuses.REATTACHED )
+    if( hClient.status != hClient.statuses.CONNECTED )
         alert('Please connect before trying to send an hEcho');
     else{
         var value = prompt('Your Name:');
@@ -238,12 +238,6 @@ function onStatus(hStatus){
             break;
         case hClient.statuses.CONNECTING:
             status = 'Connecting';
-            break;
-        case hClient.statuses.REATTACHING:
-            status = 'Reattaching';
-            break;
-        case hClient.statuses.REATTACHED:
-            status = 'Reattached';
             break;
         case hClient.statuses.DISCONNECTING:
             status = 'Disconnecting';
